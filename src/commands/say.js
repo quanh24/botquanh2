@@ -1,0 +1,56 @@
+const logger = require('@greencoast/logger');
+const { splitToPlayable } = require('../common/utils');
+const allowOver200 = process.env.ALLOW_OVER_200 || require('../../config/settings.json').allow_more_than_200_chars;
+
+module.exports = {
+  name: 's',
+  description: `Send a TTS message in your voice channel${allowOver200 ? '.' : ' (Up to 200 characters).'}`,
+  emoji: ':speaking_head:',
+  execute(message, options) {
+    const { channel } = message.member.voice;
+    const { ttsPlayer, name: guildName, voice } = message.guild;
+    const connection = voice ? voice.connection : null;
+    const [atLeastOneWord] = options.args;
+
+    if (!channel) {
+      message.reply('vào voice đi');
+      return;
+    }
+
+    if (!channel.joinable) {
+      message.reply('tôi không thể vào voice');
+      return;
+    }
+
+    if (!atLeastOneWord) {
+      message.reply('viết thêm gì đó đi');
+      return;
+    }
+
+    if (connection) {
+      splitToPlayable(options.args)
+        .then((phrases) => {
+          ttsPlayer.say(phrases);
+        })
+        .catch((error) => {
+          message.reply(error);
+        });
+    } else {
+      channel.join()
+        .then(() => {
+          logger.info(`Joined ${channel.name} in ${guildName}.`);
+          message.channel.send(`Joined ${channel}.`);
+          splitToPlayable(options.args)
+            .then((phrases) => {
+              ttsPlayer.say(phrases);
+            })
+            .catch((error) => {
+              message.reply(error);
+            });
+        })
+        .catch((error) => {
+          throw error;
+        });
+    }
+  }
+}
